@@ -107,7 +107,8 @@ public:
 	inline at::Tensor dirichlet_noise(uint32_t dim, float alpha)
 	{
 		std::vector<float> dirichlet(dim, alpha);
-		return torch::_sample_dirichlet(torch::tensor(dirichlet, this->device));
+		// return torch::_sample_dirichlet(torch::tensor(dirichlet, this->device));
+		return torch::_sample_dirichlet(torch::tensor(dirichlet));
 	}
 
 	Network model;

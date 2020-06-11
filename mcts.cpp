@@ -32,7 +32,7 @@ TreeNode::TreeNode(const TreeNode &node)
 
 TreeNode & TreeNode::operator=(const TreeNode &node)
 {
-    // 赋值构造函数
+    // 赋值操作符
     if (this == &node) return *this;
     this->copy(node, node.parent);
     return *this;
@@ -52,13 +52,25 @@ void TreeNode::copy(const TreeNode &node, TreeNode *parent)
 	this->Q = node.Q;
 #endif // !SINGLE_THREAD
     this->P = node.P;
+	uint32_t i, size = this->children.size();
+	TreeNode *temp = nullptr;
+	for (i = 0; i < size; i++)
+	{
+		temp = this->children[i];
+		if (temp)
+		{
+			temp->parent = nullptr;
+			this->children[i] = nullptr;
+			delete temp;
+			temp = nullptr;
+		}
+	}
     this->children = node.children; // 浅拷贝
-    uint32_t action_dim = node.children.size();
-    for (int i = 0; i < action_dim; i++)
+    for (i = 0; i < size; i++)
     {
         if (node.children[i])
         {
-            this->children[i] = new TreeNode(action_dim);
+            this->children[i] = new TreeNode(size);
             this->children[i]->copy(*node.children[i], this);
         }
     }
@@ -67,18 +79,21 @@ void TreeNode::copy(const TreeNode &node, TreeNode *parent)
 TreeNode::~TreeNode()
 {
     uint32_t i, size = this->children.size();
-	TreeNode *node = nullptr;
-    for (i = 0; i < size; i++)
-    {
-		node = this->children[i];
-        if (node)
-        {
-            node->parent = nullptr;
-            this->children[i] = nullptr;
-            delete node;
-			node = nullptr;
-        }
-    }
+	if (!this->leaf)
+	{
+		TreeNode *node = nullptr;
+		for (i = 0; i < size; i++)
+		{
+			node = this->children[i];
+			if (node)
+			{
+				node->parent = nullptr;
+				this->children[i] = nullptr;
+				delete node;
+				node = nullptr;
+			}
+		}
+	}
     if (this->parent)
     {
 		size = this->parent->children.size();
@@ -103,7 +118,8 @@ uint32_t TreeNode::select(double c_puct, double virtual_loss)
 #else
 	uint32_t sum_N = this->N;
 #endif // !SINGLE_THREAD
-    for (uint32_t i = 0; i < this->children.size(); i++)
+	uint32_t i, size = this->children.size();
+    for (i = 0; i < size; i++)
     {
         if (nullptr == this->children[i]) continue;
         value = this->children[i]->get_value(c_puct, sum_N);
@@ -145,8 +161,10 @@ bool TreeNode::expand(const at::Tensor &prior, const std::vector<bool> &legal_ac
         uint32_t action_dim = this->children.size(), i = 0;
 		for (i = 0; i < action_dim; i++)
 		{
-			if (!legal_action[i]) continue;
-			this->children[i] = new TreeNode(this, prior[i].item().toDouble(), action_dim);
+			if (legal_action[i])
+			{
+				this->children[i] = new TreeNode(this, prior[i].item().toDouble(), action_dim);
+			}
 		}
         this->leaf = false;
 		return true;
@@ -160,7 +178,7 @@ void TreeNode::backup(double value, double virtual_loss, bool success)
 	else
 	{
 		// 根节点
-		this->N += 1;
+		if (success) this->N += 1;
 		return;
 	}
 	// 非根节点
@@ -344,6 +362,7 @@ void MCTS::simulate(Gomoku *gomoku)
 	TreeNode *node = nullptr, *root = this->root.get();
 	uint32_t action = 0, count = 0;
 	double value = 0;
+	//clock_t ts = clock();
 	while (!success)
 	{
 		// 复制游戏状态
@@ -363,14 +382,13 @@ void MCTS::simulate(Gomoku *gomoku)
 			at::Tensor s = game.curr_state(true, this->network->device);
 			// 输出包含batch维度
 			std::vector<at::Tensor> pred = this->network->predict(s);
-
 			value = pred[1][0].item().toDouble();
 			// std::cout << value << std::endl;
 			// std::cout << pred[0][0] << std::endl;
-
+			
 			std::vector<bool> legal_move = game.get_legal_move();
 			// 扩展
-			at::Tensor prior = pred[0][0];
+			at::Tensor prior = pred[0][0].to(torch::kCPU);
 			if (this->add_noise)
 			{
 				// 添加狄利克雷噪声
@@ -389,6 +407,7 @@ void MCTS::simulate(Gomoku *gomoku)
 		if (node != root) node->backup(-value, this->virtual_loss, success);
 		if ((++count) > 1) std::printf("simulation count : %d\n", count);
 	}
+	//std::printf("simulation : %d\n", clock() - ts);
 }
 
 int MCTS::self_play(Gomoku *gomoku, std::vector<at::Tensor> &states, std::vector<at::Tensor> &probs, std::vector<float> &values,
@@ -410,6 +429,7 @@ int MCTS::self_play(Gomoku *gomoku, std::vector<at::Tensor> &states, std::vector
 	std::vector<double> action_prob;
 	std::vector<int> players;
 	at::Tensor state;
+	clock_t ts;
 	uint32_t s0 = states.size();
 	if (probs.size() != s0 || values.size() != s0)
 	{
@@ -423,7 +443,9 @@ int MCTS::self_play(Gomoku *gomoku, std::vector<at::Tensor> &states, std::vector
 		idx = gomoku->get_curr_player();
 		// 训练数据缓存不用CUDA
 		state = gomoku->curr_state(false, this->network->device);
+		//ts = clock();
 		action_prob = this->get_action_prob(gomoku);
+		//std::printf("get_action_prob : %d\n", clock() - ts);
 		move = this->get_action(action_prob);
         if (show)
         {

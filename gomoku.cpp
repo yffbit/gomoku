@@ -8,11 +8,11 @@ Gomoku::Gomoku(uint32_t n, uint32_t n_in_line) :
 	this->board = std::vector<std::vector<int>>(n, std::vector<int>(n, 0));
 }
 
-void Gomoku::reset(int start_player)
+void Gomoku::reset()
 {
 	uint32_t i, j;
 	this->board;
-	this->curr_player = start_player;
+	this->curr_player = 1;
 	this->n_count = 0;
 	this->last_move1 = -1;
 	this->last_move2 = -1;
@@ -105,30 +105,34 @@ at::Tensor Gomoku::curr_state(bool to_device, torch::Device &device)
 {
     // 获取状态作为神经网络的输入  [batch channels height width]
     // 当前玩家视角
-    uint32_t i, j, m;
-	at::Tensor s;
-	if (to_device) s = torch::zeros({ 1,5,this->n,this->n }, device);
-	else s = torch::zeros({ 1,5,this->n,this->n }, torch::Dtype::Float);
-    int a = this->curr_player, b = 0, m1 = this->last_move1, m2 = this->last_move2;
-    for (i = 0; i < n; i++)
-    {
-        for (j = 0; j < n; j++)
-        {
-            // 当前位置对应的棋子
-            m = i * this->n + j;
-            b = this->board[i][j];
-            // 当前玩家的棋子  最近一次落子 m2
-            s[0][0][i][j] = b == a ? 1 : 0;
-            // 当前玩家的棋子  不包括最近一次落子(m2)
-            s[0][1][i][j] = (b == a && m2 != m) ? 1 : 0;
-            // 对手玩家的棋子  最近一次落子 m1
-            s[0][2][i][j] = b == (-a) ? 1 : 0;
-            // 对手玩家的棋子  不包括最近一次落子(m1)
-            s[0][3][i][j] = (b == (-a) && m1 != m) ? 1 : 0;
-            // 棋子颜色
-            s[0][4][i][j] = a == 1 ? 1 : 0;
-        }
-    }
+    uint32_t i, size = this->n;
+	std::vector<int> temp;
+	for (i = 0; i < size; i++) temp.insert(temp.end(), this->board[i].begin(), this->board[i].end());
+	at::Tensor s, board;
+	if (to_device)
+	{
+		board = torch::tensor(temp, device).toType(torch::kInt).reshape({ size,size });
+		s = torch::zeros({ 1,5,size,size }, device).toType(torch::kFloat);
+	}
+	else
+	{
+		board = torch::tensor(temp, torch::kInt).reshape({ size,size });
+		s = torch::zeros({ 1,5,size,size }, torch::kFloat);
+	}
+    int a = this->curr_player, m1 = this->last_move1, m2 = this->last_move2;
+	// 当前玩家的棋子
+	s[0][0] = board.eq(a);
+	// 当前玩家的棋子  不包括最近一次落子(m2)
+	s[0][1] = s[0][0];
+	if (m2 >= 0) s[0][1][m2 / size][m2 % size] = 0;
+	// 对手玩家的棋子
+	s[0][2] = board.eq(-a);
+	// 对手玩家的棋子  不包括最近一次落子(m1)
+	s[0][3] = s[0][2];
+	if (m1 >= 0) s[0][3][m1 / size][m1 % size] = 0;
+	// 棋子颜色（是否为先手）
+	if (a == 1) s[0][4] = 1;
+	// std::cout << s << std::endl;
 	return s;
 }
 
@@ -159,14 +163,17 @@ char Gomoku::get_symbol(int player)
 
 int Gomoku::start_play(Player *player1, Player *player2, bool swap, bool show)
 {
-	player1->set_player(1);
+	// 默认第一个参数为先手
+	if (nullptr == player1 || nullptr == player2) return 0;
+	int idx = swap ? -1 : 1;	// 交换先后手
+	player1->set_player(idx);
 	player1->init();
-	player2->set_player(-1);
+	player2->set_player(-idx);
 	player2->init();
 	Player * players[2] = { player1,player2 };
-	uint32_t idx = 0, move;
-	if (swap) idx = 1;	// 交换先后手
-	this->reset(players[idx]->get_player());
+	idx = swap ? 1 : 0;
+	uint32_t move;
+	this->reset();
 	std::vector<int> res(2, 0);
 	if (show)
 	{

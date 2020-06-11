@@ -3,6 +3,8 @@
 #include "gomoku.h"
 #include "mcts.h"
 
+const char *best_path = "./model-best.pt";
+
 int main()
 {
 	Gomoku game(10, 5);
@@ -30,12 +32,12 @@ int main()
 	game1.execute_move(40);
 	game1.display();
 	Human player1, player2;
-	game.start_play(&player1, &player2, false, true);
-	game1.start_play(&player1, &player2, true, true);
+	//game.start_play(&player1, &player2, false, true);
+	//game1.start_play(&player1, &player2, true, true);
 
-	Gomoku game2(10, 4);
-	PolicyValueNet network(nullptr, true, 5, game2.get_n(), game2.get_action_dim());
-	MCTS mcts(&network, 4, 5, 1, 50, 3, game2.get_action_dim(), true);
+	Gomoku game2(8, 5);
+	PolicyValueNet network(best_path, true, 5, game2.get_n(), game2.get_action_dim());
+	MCTS mcts(&network, 4, 5, 1, 400, 3, game2.get_action_dim(), true);
 	std::vector<at::Tensor> states, probs;
 	std::vector<float> values;
 	mcts.self_play(&game2, states, probs, values, 1, 20, true, true);

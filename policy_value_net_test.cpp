@@ -5,14 +5,14 @@ void compare(uint32_t batch)
 {
 	uint32_t n = 10, action_dim, state_c = 5;
 	action_dim = n * n;
-	PolicyValueNet network(nullptr, true, state_c, n, action_dim);
+	PolicyValueNet network(nullptr, false, state_c, n, action_dim);
 	at::Tensor x = torch::zeros({ batch,state_c,n,n }, torch::Dtype::Float);
 	clock_t s = clock();
 	std::vector<at::Tensor> pred = network.model->forward(x);
 	clock_t e = clock();
 	clock_t s1 = clock();
-	x = x.to(network.device);
-	network.model->to(network.device);
+	x = x.to(torch::kCUDA);
+	network.model->to(torch::kCUDA);
 	clock_t e1 = clock();
 	std::vector<at::Tensor> pred1 = network.model->forward(x);
 	clock_t e2 = clock();

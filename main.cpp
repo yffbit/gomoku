@@ -31,12 +31,12 @@ private:
 class Train
 {
 public:
-	Train(uint32_t size=8, uint32_t n_in_line=5, uint32_t state_c=5, uint32_t n_thread=6, double lr=1e-3, double c_lr=1, double temp=1, uint32_t n_simulate=500,
-		uint32_t c_puct=5, double virtual_loss=3, uint32_t buffer_size=10000, uint32_t batch_size=256, uint32_t epochs=20, double kl_targ=0.02, uint32_t check_freq=10, uint32_t n_game=10000) :
+	Train(uint32_t size=8, uint32_t n_in_line=5, uint32_t state_c=5, uint32_t n_thread=6, double lr=4e-3, double c_lr=1, double temp=1, uint32_t n_simulate=400,
+		uint32_t c_puct=5, double virtual_loss=3, uint32_t buffer_size=10000, uint32_t batch_size=256, uint32_t epochs=20, double kl_targ=0.02, uint32_t check_freq=50, uint32_t n_game=2000) :
 		gomoku(size, n_in_line), network(best_path, true, state_c, size, size*size), mcts(&network, n_thread, c_puct, temp, n_simulate, virtual_loss, size*size, true),
 		state_c(state_c), n_thread(n_thread), c_puct(c_puct), virtual_loss(virtual_loss), temp(temp), n_simulate(n_simulate),
 		N(buffer_size), lr(lr), c_lr(c_lr), batch_size(batch_size), epochs(epochs), kl_targ(kl_targ), check_freq(check_freq), n_game(n_game),
-		optimizer(network.model->parameters(), torch::optim::AdamOptions(1e-3).weight_decay(1e-4))
+		optimizer(network.model->parameters(), torch::optim::AdamOptions(lr).weight_decay(1e-4))
 	{
 		this->states = torch::zeros({ 0,state_c,size,size });
 		this->probs = torch::zeros({ 0,size,size });

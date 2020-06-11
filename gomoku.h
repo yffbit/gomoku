@@ -12,7 +12,7 @@ class Gomoku
 {
 public:
     Gomoku(uint32_t n, uint32_t n_in_line);
-    void reset(int start_player = 1);
+    void reset();
     std::vector<bool> get_legal_move();
     bool execute_move(int move);
     std::vector<int> get_game_status();
@@ -23,7 +23,7 @@ public:
     inline uint32_t get_action_dim() const { return this->dim; }
     inline std::vector<std::vector<int>> get_board() const { return this->board; }
     inline int get_curr_player() const { return this->curr_player; }
-	int start_play(Player *player1, Player *player2, bool swap, bool show);
+	int start_play(Player *player1, Player *player2, bool swap=false, bool show=false);
 
 private:
     /* 3 * 3 棋盘
@@ -36,7 +36,7 @@ private:
 	uint32_t dim;
     uint32_t n_in_line; // 获胜目标
     uint32_t n_count;
-    int curr_player;    // 玩家标识 1,-1
+    int curr_player;    // 玩家标识 1(先手),-1(后手)
     int last_move1;     // 最后一次落子
     int last_move2;     // 倒数第二次落子
 };

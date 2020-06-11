@@ -22,7 +22,7 @@ public:
     TreeNode(const TreeNode &node);
     ~TreeNode();
     TreeNode &operator=(const TreeNode &node);
-    void copy(const TreeNode &node, TreeNode *parent=nullptr);
+    void copy(const TreeNode &node, TreeNode *parent);
     uint32_t select(double c_puct, double virtual_loss);
     double get_value(double c_puct, uint32_t sum_N) const;
     bool expand(const at::Tensor &prior, const std::vector<bool> &legal_action);
